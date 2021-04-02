@@ -1,2 +1,2 @@
 # qtt-implicit
-WIP. Implementation of qtt with metavariables and implicit arguments
+WIP. Implementation of the Calculus of Inductive Constructions + metavariables and implicit arguments + multiplicities (only Zero and Many)
