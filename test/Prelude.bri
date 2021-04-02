@@ -1,0 +1,124 @@
+module Prelude
+
+Bottom : Type
+Bottom = Pi {0 a : Type}, a
+
+Not : Type -> Type
+Not a = a -> Bottom
+
+data Unit : Type where
+  tt : Unit
+
+{- combinators -}
+
+id : Pi {0 a : Type}, a -> a
+id x = x
+
+id2 : Pi {0 a : Type}, a -> a
+id2 = id id
+
+const : Pi {0 a b : Type}, a -> b -> a
+const x y = x
+
+flip : Pi {0 a b c : Type}, (a -> b -> c) -> (b -> a -> c)
+flip f x y = f y x
+
+comp : Pi {0 a b c : Type}, (a -> b) -> (b -> c) -> (a -> c)
+comp f g x = g (f x)
+
+fork : Pi {0 a b c : Type}, (a -> b -> c) -> (a -> b) -> a -> c
+fork x y z = x z (y z)
+
+{- equality -}
+
+data Eq {a : Type}(x : a) : a -> Type where
+  Refl : Eq x x
+
+refl : Pi {a : Type}{x : a}, Eq x x
+refl = Refl
+
+J : Pi {0 a : Type}{0 x : a}(0 P : Pi y : a, Eq x y -> Type)(prefl : P x Refl){0 y : a}(0 e : Eq x y), P y e
+J P prefl e = match e return P with Refl -> prefl
+
+subst : Pi {a : Type}{x y : a}(P : a -> Type), Eq x y -> P x -> P y
+subst P e px = J {a}{x} (\(z : a)(e2 : Eq {a} x z), P z) px {y} e
+
+sym : Pi {a : Type}{x y : a}, Eq x y -> Eq y x
+sym e = subst (\z, Eq z x) e Refl
+
+trans : Pi {a : Type}{x y z : a}, Eq x y -> Eq y z -> Eq x z
+trans e1 e2 = subst (Eq x) e2 e1
+
+cong : Pi {a b : Type}(f : a -> b){x y : a}, Eq x y -> Eq (f x) (f y)
+cong f e = subst (\z, Eq (f x) (f z)) e Refl
+
+{- bool -}
+
+data Bool : Type where
+  true  : Bool
+  false : Bool
+
+not : Bool -> Bool
+not b = match b return \x, Bool with
+  true -> false
+  false -> true
+
+and : Bool -> Bool -> Bool
+and x y = match x return \x, Bool with
+  true -> y
+  false -> false
+
+or : Bool -> Bool -> Bool
+or x y = match x return \x, Bool with
+  true -> true
+  false -> y
+
+{- dpair -}
+
+data DPair(A : Type)(B : A -> Type): Type where
+  mk : Pi x : A, B x -> DPair A B
+
+proj1 : Pi {A : Type}{B : A -> Type}(p : DPair A B), A
+proj1 p = match p return \x, A with mk x y -> x
+
+proj2 : Pi {A : Type}{B : A -> Type}(p : DPair A B), B (proj1 p)
+proj2 p = match p return \q : DPair A B, B (proj1 {A} {B} q) with mk x y -> y
+
+{- pair -}
+
+data Pair(a b : Type): Type where
+  mk : a -> b -> Pair a b
+
+pelim : Pi {0 a b c : Type}, (a -> b -> c) -> Pair a b -> c
+pelim f p = match p return \x, c with mk x y -> f x y
+
+fst : Pi {0 a b : Type}, Pair a b -> a
+fst p = match p return \x, a with
+  mk x y -> x
+
+snd : Pi {0 a b : Type}, Pair a b -> b
+snd p = match p return \x, b with
+  mk x y -> y
+
+{- or -}
+
+data Either(A B : Type): Type where
+  left  : A -> Either A B
+  right : B -> Either A B
+
+decidable : Type -> Type
+decidable a = Either a (Not a)
+
+{- accessible -}
+
+data Acc(A : Type)(R : A -> A -> Type)(x : A): Type where
+  mk : (Pi y : A, R y x -> Acc A R y) -> Acc A R x
+
+wf_rec : Pi
+  (A : Type)
+  (R : A -> A -> Type)
+  (P : A -> Type)
+  (f : Pi x : A, (Pi y : A, R y x -> P y) -> P x)
+  (x : A)
+  (acc_x : Acc A R x), P x
+wf_rec A R P f x (mk g) = f x (\y lt, wf_rec A R P f y (g y lt))
